@@ -1,0 +1,141 @@
+#!/bin/bash
+set -e
+
+source /venv/main/bin/activate
+
+WORKSPACE=${WORKSPACE:-/workspace}
+COMFYUI_DIR="${WORKSPACE}/ComfyUI"
+
+echo "=== Ultimate cloth changer provisioning start ==="
+
+APT_PACKAGES=()
+PIP_PACKAGES=()
+
+NODES=(
+)
+
+TEXT_ENCODERS=(
+    "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/clip_l.safetensors"
+    "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp16.safetensors"
+)
+
+CLIP_VISION=(
+    "https://huggingface.co/Comfy-Org/sigclip_vision_384/resolve/main/sigclip_vision_patch14_384.safetensors"
+)
+
+VAE_MODELS=(
+    "https://huggingface.co/black-forest-labs/FLUX.1-dev/resolve/main/ae.safetensors"
+)
+
+UNET_MODELS=(
+    "https://huggingface.co/black-forest-labs/FLUX.1-dev/resolve/main/flux1-dev.safetensors"
+    "https://huggingface.co/black-forest-labs/FLUX.1-Fill-dev/resolve/main/flux1-fill-dev.safetensors"
+)
+
+STYLE_MODELS=(
+    "https://huggingface.co/black-forest-labs/FLUX.1-Redux-dev/resolve/main/flux1-redux-dev.safetensors"
+)
+
+WORKFLOWS=(
+    "https://civitai.com/api/download/models/1740871"
+)
+
+provisioning_clone_comfyui() {
+    if [[ ! -d "${COMFYUI_DIR}" ]]; then
+        echo "Cloning ComfyUI..."
+        git clone https://github.com/comfyanonymous/ComfyUI.git "${COMFYUI_DIR}"
+    fi
+    cd "${COMFYUI_DIR}"
+}
+
+provisioning_install_base_reqs() {
+    if [[ -f requirements.txt ]]; then
+        echo "Installing base requirements..."
+        pip install --no-cache-dir -r requirements.txt
+    fi
+}
+
+provisioning_get_apt_packages() {
+    if [[ ${#APT_PACKAGES[@]} -gt 0 ]]; then
+        echo "Installing apt packages..."
+        sudo apt update && sudo apt install -y "${APT_PACKAGES[@]}"
+    fi
+}
+
+provisioning_get_pip_packages() {
+    if [[ ${#PIP_PACKAGES[@]} -gt 0 ]]; then
+        echo "Installing extra pip packages..."
+        pip install --no-cache-dir "${PIP_PACKAGES[@]}"
+    fi
+}
+
+provisioning_get_files() {
+    if [[ $# -lt 2 ]]; then return; fi
+    local dir="$1"
+    shift
+    local files=("$@")
+
+    mkdir -p "$dir"
+
+    for url in "${files[@]}"; do
+        local auth_header=""
+        if [[ -n "$HF_TOKEN" && "$url" =~ huggingface\.co ]]; then
+            auth_header="--header=Authorization: Bearer $HF_TOKEN"
+        elif [[ -n "$CIVITAI_TOKEN" && "$url" =~ civitai\.com ]]; then
+            auth_header="--header=Authorization: Bearer $CIVITAI_TOKEN"
+        fi
+
+        echo "Downloading: $url"
+        wget $auth_header -nc --content-disposition --show-progress -e dotbytes=4M -P "$dir" "$url" || echo " [!] Download failed: $url"
+    done
+}
+
+provisioning_get_nodes() {
+    mkdir -p "${COMFYUI_DIR}/custom_nodes"
+    cd "${COMFYUI_DIR}/custom_nodes"
+
+    for repo in "${NODES[@]}"; do
+        dir="${repo##*/}"
+        dir="${dir%.git}"
+        path="./${dir}"
+
+        if [[ -d "$path" ]]; then
+            echo "Updating node: $dir"
+            (
+                cd "$path" && \
+                git pull --ff-only 2>/dev/null || \
+                git fetch --all 2>/dev/null || true
+            )
+        else
+            echo "Cloning node: $dir"
+            git clone "$repo" "$path" --recursive || echo " [!] Clone failed: $repo"
+        fi
+
+        if [[ -f "${path}/requirements.txt" ]]; then
+            echo "Installing deps for $dir..."
+            pip install --no-cache-dir -r "${path}/requirements.txt" || echo " [!] pip failed for $dir"
+        fi
+    done
+}
+
+provisioning_start() {
+    provisioning_get_apt_packages
+    provisioning_clone_comfyui
+    provisioning_install_base_reqs
+    provisioning_get_nodes
+    provisioning_get_pip_packages
+
+    provisioning_get_files "${COMFYUI_DIR}/models/text_encoders" "${TEXT_ENCODERS[@]}"
+    provisioning_get_files "${COMFYUI_DIR}/models/clip_vision" "${CLIP_VISION[@]}"
+    provisioning_get_files "${COMFYUI_DIR}/models/vae" "${VAE_MODELS[@]}"
+    provisioning_get_files "${COMFYUI_DIR}/models/unet" "${UNET_MODELS[@]}"
+    provisioning_get_files "${COMFYUI_DIR}/models/style_models" "${STYLE_MODELS[@]}"
+    provisioning_get_files "${COMFYUI_DIR}/user/default/workflows" "${WORKFLOWS[@]}"
+}
+
+if [[ ! -f /.noprovisioning ]]; then
+    provisioning_start
+fi
+
+cd "${COMFYUI_DIR}"
+python main.py --listen 0.0.0.0 --port 8188
