@@ -12,6 +12,17 @@ APT_PACKAGES=()
 PIP_PACKAGES=()
 
 NODES=(
+    "https://github.com/ai-shizuka/ComfyUI-tbox.git"
+    "https://github.com/yolain/ComfyUI-Easy-Use.git"
+    "https://github.com/Suzie1/was-node-suite-comfyui.git"
+    "https://github.com/chflame163/ComfyUI_LayerStyle_Advance.git"
+    "https://github.com/un-seen/comfyui-tensorops.git"
+    "https://github.com/cubiq/ComfyUI_essentials.git"
+    "https://github.com/Acly/comfyui-inpaint-nodes.git"
+    "https://github.com/city96/ComfyUI-GGUF.git"
+    "https://github.com/lrzjason/Comfyui-In-Context-Lora-Utils.git"
+    "https://github.com/kaibioinfo/ComfyUI_AdvancedRefluxControl.git"
+    "https://github.com/chrisgoringe/cg-use-everywhere.git"
 )
 
 TEXT_ENCODERS=(
@@ -39,6 +50,22 @@ STYLE_MODELS=(
 LORA_MODELS=(
     "https://civitai.com/api/download/models/1041442|Flux.1_Turbo_Detailer.safetensors"
     "https://civitai.com/api/download/models/964759|FLUX.1-Turbo-Alpha.safetensors"
+)
+
+SAMS=(
+    "https://huggingface.co/Kijai/sam2-safetensors/resolve/main/sam2_hiera_base_plus.safetensors"
+)
+
+FLORENCE2_BASE_FT_FILES=(
+    "https://huggingface.co/chflame163/ComfyUI_LayerStyle/resolve/main/ComfyUI/models/florence2/base-ft/config.json"
+    "https://huggingface.co/chflame163/ComfyUI_LayerStyle/resolve/main/ComfyUI/models/florence2/base-ft/configuration_florence2.py"
+    "https://huggingface.co/chflame163/ComfyUI_LayerStyle/resolve/main/ComfyUI/models/florence2/base-ft/modeling_florence2.py"
+    "https://huggingface.co/chflame163/ComfyUI_LayerStyle/resolve/main/ComfyUI/models/florence2/base-ft/preprocessor_config.json"
+    "https://huggingface.co/chflame163/ComfyUI_LayerStyle/resolve/main/ComfyUI/models/florence2/base-ft/processing_florence2.py"
+    "https://huggingface.co/chflame163/ComfyUI_LayerStyle/resolve/main/ComfyUI/models/florence2/base-ft/pytorch_model.bin"
+    "https://huggingface.co/chflame163/ComfyUI_LayerStyle/resolve/main/ComfyUI/models/florence2/base-ft/tokenizer.json"
+    "https://huggingface.co/chflame163/ComfyUI_LayerStyle/resolve/main/ComfyUI/models/florence2/base-ft/tokenizer_config.json"
+    "https://huggingface.co/chflame163/ComfyUI_LayerStyle/resolve/main/ComfyUI/models/florence2/base-ft/vocab.json"
 )
 
 WORKFLOWS=(
@@ -154,6 +181,8 @@ provisioning_start() {
     provisioning_get_files "${COMFYUI_DIR}/models/unet" "${UNET_MODELS[@]}"
     provisioning_get_files "${COMFYUI_DIR}/models/style_models" "${STYLE_MODELS[@]}"
     provisioning_get_files "${COMFYUI_DIR}/models/loras" "${LORA_MODELS[@]}"
+    provisioning_get_files "${COMFYUI_DIR}/models/sams" "${SAMS[@]}"
+    provisioning_get_files "${COMFYUI_DIR}/models/florence2/base-ft" "${FLORENCE2_BASE_FT_FILES[@]}"
     provisioning_get_files "${COMFYUI_DIR}/user/default/workflows" "${WORKFLOWS[@]}"
 }
 
