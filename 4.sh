@@ -16,7 +16,7 @@ NODES=(
 
 TEXT_ENCODERS=(
     "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/clip_l.safetensors"
-    "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp16.safetensors"
+    "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp8_e4m3fn.safetensors"
 )
 
 CLIP_VISION=(
@@ -33,7 +33,12 @@ UNET_MODELS=(
 )
 
 STYLE_MODELS=(
-    "https://huggingface.co/black-forest-labs/FLUX.1-Redux-dev/resolve/main/flux1-redux-dev.safetensors"
+    "https://huggingface.co/black-forest-labs/FLUX.1-Redux-dev/resolve/main/flux1-redux-dev.safetensors|redux.safetensors"
+)
+
+LORA_MODELS=(
+    "https://civitai.com/api/download/models/1041442|Flux.1_Turbo_Detailer.safetensors"
+    "https://civitai.com/api/download/models/964759|FLUX.1-Turbo-Alpha.safetensors"
 )
 
 WORKFLOWS=(
@@ -77,16 +82,34 @@ provisioning_get_files() {
 
     mkdir -p "$dir"
 
-    for url in "${files[@]}"; do
-        local auth_header=""
+    for spec in "${files[@]}"; do
+        local url="$spec"
+        local output_name=""
+        local auth_args=()
+
+        if [[ "$spec" == *"|"* ]]; then
+            url="${spec%%|*}"
+            output_name="${spec#*|}"
+        fi
+
         if [[ -n "$HF_TOKEN" && "$url" =~ huggingface\.co ]]; then
-            auth_header="--header=Authorization: Bearer $HF_TOKEN"
+            auth_args=(--header="Authorization: Bearer $HF_TOKEN")
         elif [[ -n "$CIVITAI_TOKEN" && "$url" =~ civitai\.com ]]; then
-            auth_header="--header=Authorization: Bearer $CIVITAI_TOKEN"
+            auth_args=(--header="Authorization: Bearer $CIVITAI_TOKEN")
         fi
 
         echo "Downloading: $url"
-        wget $auth_header -nc --content-disposition --show-progress -e dotbytes=4M -P "$dir" "$url" || echo " [!] Download failed: $url"
+        if [[ -n "$output_name" ]]; then
+            local output_path="${dir}/${output_name}"
+            if [[ -f "$output_path" ]]; then
+                echo "Already exists: $output_path"
+                continue
+            fi
+
+            wget "${auth_args[@]}" --show-progress -e dotbytes=4M -O "$output_path" "$url" || echo " [!] Download failed: $url"
+        else
+            wget "${auth_args[@]}" -nc --content-disposition --show-progress -e dotbytes=4M -P "$dir" "$url" || echo " [!] Download failed: $url"
+        fi
     done
 }
 
@@ -130,6 +153,7 @@ provisioning_start() {
     provisioning_get_files "${COMFYUI_DIR}/models/vae" "${VAE_MODELS[@]}"
     provisioning_get_files "${COMFYUI_DIR}/models/unet" "${UNET_MODELS[@]}"
     provisioning_get_files "${COMFYUI_DIR}/models/style_models" "${STYLE_MODELS[@]}"
+    provisioning_get_files "${COMFYUI_DIR}/models/loras" "${LORA_MODELS[@]}"
     provisioning_get_files "${COMFYUI_DIR}/user/default/workflows" "${WORKFLOWS[@]}"
 }
 
