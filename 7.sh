@@ -6,54 +6,59 @@ source /venv/main/bin/activate
 WORKSPACE=${WORKSPACE:-/workspace}
 COMFYUI_DIR="${WORKSPACE}/ComfyUI"
 
-echo "=== Ultimate cloth changer provisioning start ==="
+echo "=== Moody Z-Image i2i provisioning start ==="
 
 APT_PACKAGES=()
 PIP_PACKAGES=()
 
 NODES=(
-    "https://github.com/ai-shizuka/ComfyUI-tbox.git"
-    "https://github.com/yolain/ComfyUI-Easy-Use.git"
-    "https://github.com/Suzie1/was-node-suite-comfyui.git"
-    "https://github.com/chflame163/ComfyUI_LayerStyle_Advance.git"
-    "https://github.com/un-seen/comfyui-tensorops.git"
+    "https://github.com/kijai/ComfyUI-Florence2.git"
+    "https://github.com/ltdrdata/ComfyUI-Impact-Pack.git"
+    "https://github.com/ltdrdata/ComfyUI-Impact-Subpack.git"
+    "https://github.com/rgthree/rgthree-comfy.git"
     "https://github.com/cubiq/ComfyUI_essentials.git"
-    "https://github.com/Acly/comfyui-inpaint-nodes.git"
-    "https://github.com/city96/ComfyUI-GGUF.git"
-    "https://github.com/lrzjason/Comfyui-In-Context-Lora-Utils.git"
-    "https://github.com/kaibioinfo/ComfyUI_AdvancedRefluxControl.git"
-    "https://github.com/chrisgoringe/cg-use-everywhere.git"
+    "https://github.com/numz/ComfyUI-SeedVR2_VideoUpscaler.git"
+    "https://github.com/ssitu/ComfyUI_UltimateSDUpscale.git"
+    "https://github.com/kijai/ComfyUI-KJNodes.git"
 )
 
 TEXT_ENCODERS=(
-    "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/clip_l.safetensors"
-    "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp8_e4m3fn.safetensors"
+    "https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/text_encoders/qwen_3_4b.safetensors"
 )
 
-CLIP_VISION=(
-    "https://huggingface.co/Comfy-Org/sigclip_vision_384/resolve/main/sigclip_vision_patch14_384.safetensors"
+DIFFUSION_MODELS=(
+    "https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/diffusion_models/z_image_turbo_bf16.safetensors"
 )
 
 VAE_MODELS=(
-    "https://huggingface.co/black-forest-labs/FLUX.1-dev/resolve/main/ae.safetensors"
+    "https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/vae/ae.safetensors"
 )
 
-UNET_MODELS=(
-    "https://huggingface.co/black-forest-labs/FLUX.1-dev/resolve/main/flux1-dev.safetensors"
-    "https://huggingface.co/black-forest-labs/FLUX.1-Fill-dev/resolve/main/flux1-fill-dev.safetensors"
+UPSCALE_MODELS=(
+    "https://huggingface.co/lokCX/4x-Ultrasharp/resolve/main/4x-UltraSharp.pth?download=true|4x-UltraSharp.pth"
+    "https://huggingface.co/notkenski/upscalers/resolve/main/1xSkinContrast-High-SuperUltraCompact.pth?download=true|1xSkinContrast-High-SuperUltraCompact.pth"
 )
 
-STYLE_MODELS=(
-    "https://huggingface.co/black-forest-labs/FLUX.1-Redux-dev/resolve/main/flux1-redux-dev.safetensors|redux.safetensors"
+SAMS=(
+    "https://huggingface.co/licyk/comfyui-extension-models/resolve/main/ComfyUI-Impact-Pack/sam_vit_b_01ec64.pth"
 )
 
-LORA_MODELS=(
-    "https://civitai.com/api/download/models/1041442|Flux.1_Turbo_Detailer.safetensors"
-    "https://civitai.com/api/download/models/964759|FLUX.1-Turbo-Alpha.safetensors"
+ULTRALYTICS_BBOX=(
+    "https://huggingface.co/alexgenovese/ultralytics/resolve/main/bbox/face_yolov8m.pt?download=true"
 )
 
-WORKFLOWS=(
-    "https://civitai.com/api/download/models/1740871"
+SEEDVR2_MODELS=(
+    "https://huggingface.co/numz/SeedVR2_comfyUI/resolve/main/seedvr2_ema_7b_sharp_fp16.safetensors"
+    "https://huggingface.co/numz/SeedVR2_comfyUI/resolve/main/ema_vae_fp16.safetensors"
+)
+
+# Optional:
+# - Set MOODY_MODEL_URL to download your preferred Moody checkpoint as
+#   models/diffusion_models/moody-v10.safetensors.
+# - Set WORKFLOW_URL to auto-download the workflow JSON into user/default/workflows.
+# - The Florence2 node downloads MiaoshouAI/Florence-2-base-PromptGen-v2.0 on first use.
+OPTIONAL_LORAS=(
+    "https://huggingface.co/tarn59/pixel_art_style_lora_z_image_turbo/resolve/main/pixel_art_style_z_image_turbo.safetensors?download=true|pixel_art_style_z_image_turbo.safetensors"
 )
 
 provisioning_clone_comfyui() {
@@ -124,6 +129,16 @@ provisioning_get_files() {
     done
 }
 
+provisioning_copy_alias() {
+    local source_path="$1"
+    local target_path="$2"
+
+    if [[ -f "$source_path" && ! -f "$target_path" ]]; then
+        echo "Creating alias: $target_path"
+        cp "$source_path" "$target_path"
+    fi
+}
+
 provisioning_get_nodes() {
     mkdir -p "${COMFYUI_DIR}/custom_nodes"
     cd "${COMFYUI_DIR}/custom_nodes"
@@ -160,12 +175,29 @@ provisioning_start() {
     provisioning_get_pip_packages
 
     provisioning_get_files "${COMFYUI_DIR}/models/text_encoders" "${TEXT_ENCODERS[@]}"
-    provisioning_get_files "${COMFYUI_DIR}/models/clip_vision" "${CLIP_VISION[@]}"
+    provisioning_get_files "${COMFYUI_DIR}/models/diffusion_models" "${DIFFUSION_MODELS[@]}"
     provisioning_get_files "${COMFYUI_DIR}/models/vae" "${VAE_MODELS[@]}"
-    provisioning_get_files "${COMFYUI_DIR}/models/unet" "${UNET_MODELS[@]}"
-    provisioning_get_files "${COMFYUI_DIR}/models/style_models" "${STYLE_MODELS[@]}"
-    provisioning_get_files "${COMFYUI_DIR}/models/loras" "${LORA_MODELS[@]}"
-    provisioning_get_files "${COMFYUI_DIR}/user/default/workflows" "${WORKFLOWS[@]}"
+    provisioning_get_files "${COMFYUI_DIR}/models/upscale_models" "${UPSCALE_MODELS[@]}"
+    provisioning_get_files "${COMFYUI_DIR}/models/sams" "${SAMS[@]}"
+    provisioning_get_files "${COMFYUI_DIR}/models/ultralytics/bbox" "${ULTRALYTICS_BBOX[@]}"
+    provisioning_get_files "${COMFYUI_DIR}/models/seedvr2" "${SEEDVR2_MODELS[@]}"
+
+    if [[ -n "${MOODY_MODEL_URL:-}" ]]; then
+        provisioning_get_files "${COMFYUI_DIR}/models/diffusion_models" "${MOODY_MODEL_URL}|moody-v10.safetensors"
+    else
+        # Fallback so the workflow opens immediately even before the real Moody model is added.
+        provisioning_copy_alias "${COMFYUI_DIR}/models/diffusion_models/z_image_turbo_bf16.safetensors" "${COMFYUI_DIR}/models/diffusion_models/moody-v10.safetensors"
+    fi
+
+    if [[ -n "${OPTIONAL_PIXEL_ART_LORA:-}" ]]; then
+        provisioning_get_files "${COMFYUI_DIR}/models/loras" "${OPTIONAL_LORAS[@]}"
+    fi
+
+    if [[ -n "${WORKFLOW_URL:-}" ]]; then
+        provisioning_get_files "${COMFYUI_DIR}/user/default/workflows" "${WORKFLOW_URL}"
+    fi
+
+    provisioning_copy_alias "${COMFYUI_DIR}/models/seedvr2/ema_vae_fp16.safetensors" "${COMFYUI_DIR}/models/vae/ema_vae_fp16.safetensors"
 }
 
 if [[ ! -f /.noprovisioning ]]; then

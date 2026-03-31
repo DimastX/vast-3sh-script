@@ -6,55 +6,38 @@ source /venv/main/bin/activate
 WORKSPACE=${WORKSPACE:-/workspace}
 COMFYUI_DIR="${WORKSPACE}/ComfyUI"
 
-echo "=== Ultimate cloth changer provisioning start ==="
+echo "=== Flux2 Easy Swap provisioning start ==="
 
 APT_PACKAGES=()
 PIP_PACKAGES=()
 
 NODES=(
-    "https://github.com/ai-shizuka/ComfyUI-tbox.git"
-    "https://github.com/yolain/ComfyUI-Easy-Use.git"
-    "https://github.com/Suzie1/was-node-suite-comfyui.git"
     "https://github.com/chflame163/ComfyUI_LayerStyle_Advance.git"
-    "https://github.com/un-seen/comfyui-tensorops.git"
-    "https://github.com/cubiq/ComfyUI_essentials.git"
-    "https://github.com/Acly/comfyui-inpaint-nodes.git"
-    "https://github.com/city96/ComfyUI-GGUF.git"
-    "https://github.com/lrzjason/Comfyui-In-Context-Lora-Utils.git"
-    "https://github.com/kaibioinfo/ComfyUI_AdvancedRefluxControl.git"
-    "https://github.com/chrisgoringe/cg-use-everywhere.git"
+    "https://github.com/kijai/ComfyUI-KJNodes.git"
+    "https://github.com/ltdrdata/ComfyUI-Impact-Pack.git"
+    "https://github.com/rgthree/rgthree-comfy.git"
+    "https://github.com/thalismind/ComfyUI-LoadImageWithFilename.git"
+    "https://github.com/JPS-GER/ComfyUI_JPS-Nodes.git"
+    "https://github.com/r-vage/ComfyUI-RvTools_v2.git"
+    "https://github.com/Suzie1/was-node-suite-comfyui.git"
+    "https://github.com/BadCafeCode/masquerade-nodes-comfyui.git"
 )
 
 TEXT_ENCODERS=(
-    "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/clip_l.safetensors"
-    "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp8_e4m3fn.safetensors"
+    "https://huggingface.co/Comfy-Org/flux2-klein-9B/resolve/main/split_files/text_encoders/qwen_3_8b_fp8mixed.safetensors"
 )
 
-CLIP_VISION=(
-    "https://huggingface.co/Comfy-Org/sigclip_vision_384/resolve/main/sigclip_vision_patch14_384.safetensors"
+DIFFUSION_MODELS=(
+    "https://huggingface.co/kp-forks/FLUX.2-klein-9B/resolve/main/flux-2-klein-9b.safetensors"
 )
 
 VAE_MODELS=(
-    "https://huggingface.co/black-forest-labs/FLUX.1-dev/resolve/main/ae.safetensors"
+    "https://huggingface.co/Comfy-Org/flux2-dev/resolve/main/split_files/vae/flux2-vae.safetensors"
 )
 
-UNET_MODELS=(
-    "https://huggingface.co/black-forest-labs/FLUX.1-dev/resolve/main/flux1-dev.safetensors"
-    "https://huggingface.co/black-forest-labs/FLUX.1-Fill-dev/resolve/main/flux1-fill-dev.safetensors"
-)
-
-STYLE_MODELS=(
-    "https://huggingface.co/black-forest-labs/FLUX.1-Redux-dev/resolve/main/flux1-redux-dev.safetensors|redux.safetensors"
-)
-
-LORA_MODELS=(
-    "https://civitai.com/api/download/models/1041442|Flux.1_Turbo_Detailer.safetensors"
-    "https://civitai.com/api/download/models/964759|FLUX.1-Turbo-Alpha.safetensors"
-)
-
-WORKFLOWS=(
-    "https://civitai.com/api/download/models/1740871"
-)
+# Optional:
+# - Set WORKFLOW_URL to auto-download the workflow JSON into user/default/workflows.
+# - The workflow has an empty Power Lora Loader, so any LoRA can be added manually later.
 
 provisioning_clone_comfyui() {
     if [[ ! -d "${COMFYUI_DIR}" ]]; then
@@ -124,6 +107,16 @@ provisioning_get_files() {
     done
 }
 
+provisioning_copy_alias() {
+    local source_path="$1"
+    local target_path="$2"
+
+    if [[ -f "$source_path" && ! -f "$target_path" ]]; then
+        echo "Creating alias: $target_path"
+        cp "$source_path" "$target_path"
+    fi
+}
+
 provisioning_get_nodes() {
     mkdir -p "${COMFYUI_DIR}/custom_nodes"
     cd "${COMFYUI_DIR}/custom_nodes"
@@ -160,12 +153,15 @@ provisioning_start() {
     provisioning_get_pip_packages
 
     provisioning_get_files "${COMFYUI_DIR}/models/text_encoders" "${TEXT_ENCODERS[@]}"
-    provisioning_get_files "${COMFYUI_DIR}/models/clip_vision" "${CLIP_VISION[@]}"
+    provisioning_get_files "${COMFYUI_DIR}/models/diffusion_models" "${DIFFUSION_MODELS[@]}"
     provisioning_get_files "${COMFYUI_DIR}/models/vae" "${VAE_MODELS[@]}"
-    provisioning_get_files "${COMFYUI_DIR}/models/unet" "${UNET_MODELS[@]}"
-    provisioning_get_files "${COMFYUI_DIR}/models/style_models" "${STYLE_MODELS[@]}"
-    provisioning_get_files "${COMFYUI_DIR}/models/loras" "${LORA_MODELS[@]}"
-    provisioning_get_files "${COMFYUI_DIR}/user/default/workflows" "${WORKFLOWS[@]}"
+
+    if [[ -n "${WORKFLOW_URL:-}" ]]; then
+        provisioning_get_files "${COMFYUI_DIR}/user/default/workflows" "${WORKFLOW_URL}"
+    fi
+
+    # Match the exact filename used by the workflow graph.
+    provisioning_copy_alias "${COMFYUI_DIR}/models/vae/flux2-vae.safetensors" "${COMFYUI_DIR}/models/vae/Flux2 Vae.safetensors"
 }
 
 if [[ ! -f /.noprovisioning ]]; then
