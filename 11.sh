@@ -1,7 +1,11 @@
 #!/bin/bash
 set -e
 
-source /venv/main/bin/activate
+if [[ -f /venv/main/bin/activate ]]; then
+    source /venv/main/bin/activate
+else
+    echo " [!] /venv/main/bin/activate not found, continue without venv activation"
+fi
 
 WORKSPACE=${WORKSPACE:-/workspace}
 COMFYUI_DIR="${WORKSPACE}/ComfyUI"
@@ -112,6 +116,11 @@ provisioning_get_files() {
 
     mkdir -p "$dir"
 
+    if ! command -v wget >/dev/null 2>&1; then
+        echo " [!] wget is required but not found in PATH"
+        exit 1
+    fi
+
     for spec in "${files[@]}"; do
         local url="$spec"
         local output_name=""
@@ -135,9 +144,31 @@ provisioning_get_files() {
                 echo "Already exists: $output_path"
                 continue
             fi
-            wget "${auth_args[@]}" --show-progress -e dotbytes=4M -O "$output_path" "$url"
+            wget "${auth_args[@]}" \
+                --show-progress \
+                --tries=5 \
+                --waitretry=5 \
+                --retry-connrefused \
+                --timeout=30 \
+                --read-timeout=30 \
+                -c \
+                -e dotbytes=4M \
+                -O "$output_path" \
+                "$url"
         else
-            wget "${auth_args[@]}" -nc --content-disposition --show-progress -e dotbytes=4M -P "$dir" "$url"
+            wget "${auth_args[@]}" \
+                -nc \
+                --content-disposition \
+                --show-progress \
+                --tries=5 \
+                --waitretry=5 \
+                --retry-connrefused \
+                --timeout=30 \
+                --read-timeout=30 \
+                -c \
+                -e dotbytes=4M \
+                -P "$dir" \
+                "$url"
         fi
     done
 }
